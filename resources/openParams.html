@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --input-bg: #ffffff;
+            --input-border: #cccccc;
+            --preview-bg: #f9f9f9;
+            --preview-border: #eeeeee;
+            --warning: #d9534f;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #333333;
+                --text-color: #eeeeee;
+                --input-bg: #444444;
+                --input-border: #555555;
+                --preview-bg: #2a2a2a;
+                --preview-border: #444444;
+                --warning: #ff6666;
+            }
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 10px; font-size: 16px; 
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; transition: background-color 0.3s;
+        }
+        .hidden { display: none !important; }
+        .warning { color: var(--warning); font-weight: bold; text-align: center; margin-top: 30px; }
+        label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 16px; }
+        select { 
+            width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; 
+            border: 1px solid var(--input-border); border-radius: 5px; 
+            background-color: var(--input-bg); color: var(--text-color); outline: none;
+        }
+        .preview { margin-top: 15px; background: var(--preview-bg); padding: 12px; border: 1px solid var(--preview-border); border-radius: 5px; }
+        .preview-title { font-weight: 700; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+        ul { margin: 0; padding: 0; list-style: none; max-height: 120px; overflow-y: auto; }
+        li { margin-bottom: 5px; font-size: 14px; display: flex; align-items: center; }
+        li::before { content: 'ƒx'; margin-right: 8px; font-size: 14px; opacity: 0.8; font-style: italic; font-weight: bold; }
+        .header-container { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .header-container h1 { margin: 0; font-size: 22px; }
+        .header-container img { width: 96px; height: 96px; border-radius: 8px; }
+        .delete-btn { background-color: var(--warning); color: white; border: none; border-radius: 5px; cursor: pointer; padding: 8px 12px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; flex-shrink: 0; }
+        .delete-btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <img src="128x128.png" alt="Fetch Parameters">
+        <h1>Fetch Parameters!</h1>
+    </div>
+    
+    <div id="warningMsg" class="warning hidden">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <br>No parameters saved yet.<br>Use "Save Parameters" first.
+    </div>
+    
+    <div id="mainForm" class="hidden">
+        <label for="workspaceSelect">Select Parameter Set to Fetch!</label>
+        <div style="display: flex; gap: 10px;">
+            <select id="workspaceSelect"></select>
+            <button id="deleteBtn" class="delete-btn" title="Delete Parameter Set">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+        </div>
+        
+        <div class="preview" id="previewContainer">
+            <div class="preview-title">Parameters included</div>
+            <ul id="fileList"></ul>
+        </div>
+    </div>
+
+    <script>
+        let paramsData = {};
+
+        function updateList() {
+            const select = document.getElementById('workspaceSelect').value;
+            const list = document.getElementById('fileList');
+            list.innerHTML = '';
+            if (paramsData[select]) {
+                paramsData[select].forEach(f => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<label style="display:flex; align-items:center; font-weight:normal; margin:0; cursor:pointer;"><input type="checkbox" value="${f.name}" checked style="margin-right:8px; cursor:pointer;">${f.name} = ${f.expression}</label>`;
+                    li.querySelector('input').addEventListener('change', sendState);
+                    list.appendChild(li);
+                });
+            }
+            sendState();
+        }
+
+        function sendState() {
+            if (!window.adsk) return;
+            const select = document.getElementById('workspaceSelect').value;
+            const selectedParams = Array.from(document.querySelectorAll('#fileList input:checked')).map(cb => cb.value);
+            adsk.fusionSendData('update', JSON.stringify({ select: select, selectedParams: selectedParams }));
+        }
+
+        document.getElementById('workspaceSelect').addEventListener('change', updateList);
+
+        document.getElementById('deleteBtn').addEventListener('click', () => {
+            const select = document.getElementById('workspaceSelect').value;
+            if (select) {
+                adsk.fusionSendData('delete', JSON.stringify({ select: select }));
+            }
+        });
+
+        window.fusionJavaScriptHandler = {
+            handle: function(action, data) {
+                if (action === 'init') {
+                    paramsData = JSON.parse(data);
+                    const keys = Object.keys(paramsData);
+                    if (keys.length === 0) {
+                        document.getElementById('warningMsg').classList.remove('hidden');
+                        document.getElementById('mainForm').classList.add('hidden');
+                    } else {
+                        document.getElementById('mainForm').classList.remove('hidden');
+                        const sel = document.getElementById('workspaceSelect');
+                        sel.innerHTML = ''; // Clear existing options before repopulating
+                        keys.forEach(ws => { sel.add(new Option(ws, ws)); });
+                        updateList();
+                    }
+                }
+                return 'OK';
+            }
+        };
+        window.onload = () => {
+            const waitForAdsk = setInterval(() => {
+                if (window.adsk) {
+                    clearInterval(waitForAdsk);
+                    adsk.fusionSendData('ready', '');
+                }
+            }, 50);
+        };
+    </script>
+</body>
+</html>

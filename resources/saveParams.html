@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --input-bg: #ffffff;
+            --input-border: #cccccc;
+            --preview-bg: #f9f9f9;
+            --preview-border: #eeeeee;
+            --accent: #0066cc;
+            --warning: #d9534f;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #333333;
+                --text-color: #eeeeee;
+                --input-bg: #444444;
+                --input-border: #555555;
+                --preview-bg: #2a2a2a;
+                --preview-border: #444444;
+                --accent: #4da6ff;
+                --warning: #ff6666;
+            }
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 10px; font-size: 16px; 
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; transition: background-color 0.3s;
+        }
+        .hidden { display: none !important; }
+        .warning { color: var(--warning); font-weight: bold; text-align: center; margin-top: 30px; }
+        label { font-weight: 600; display: block; margin-bottom: 6px; margin-top: 15px; font-size: 16px; }
+        input[type=text], select { 
+            width: 100%; padding: 8px; box-sizing: border-box; 
+            border: 1px solid var(--input-border); border-radius: 5px; 
+            background-color: var(--input-bg); color: var(--text-color);
+            outline: none; transition: border-color 0.2s;
+        }
+        input[type=text]:focus, select:focus { border-color: var(--accent); }
+        .radio-group { display: flex; gap: 15px; margin-top: 5px; margin-bottom: 20px; }
+        .radio-group label { margin: 0; display: flex; align-items: center; font-weight: normal; font-size: 14px; cursor: pointer; }
+        .radio-group input { margin-right: 6px; cursor: pointer; }
+        .preview { margin-top: 15px; background: var(--preview-bg); padding: 12px; border: 1px solid var(--preview-border); border-radius: 5px; }
+        .preview-title { font-weight: 700; margin-bottom: 10px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+        ul { margin: 0; padding: 0; list-style: none; max-height: 100px; overflow-y: auto; }
+        li { margin-bottom: 5px; font-size: 14px; display: flex; align-items: center; }
+        li::before { content: 'ƒx'; margin-right: 8px; font-size: 14px; opacity: 0.8; font-style: italic; font-weight: bold; }
+        .header-container { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .header-container h1 { margin: 0; font-size: 22px; }
+        .header-container img { width: 96px; height: 96px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <img src="128x128.png" alt="Save Parameters">
+        <h1>Save Parameters</h1>
+    </div>
+
+    <div id="warningMsg" class="warning hidden">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <br>No user parameters found.<br>Please create some first.
+    </div>
+
+    <div id="mainForm" class="hidden">
+        <label>Action</label>
+        <div class="radio-group" id="modeGroup">
+            <label><input type="radio" id="createNew" name="mode" value="Create New" checked> Create New</label>
+            <label><input type="radio" id="updateExisting" name="mode" value="Update Existing"> Update Existing</label>
+        </div>
+        
+        <div id="nameContainer">
+            <label for="workspaceName">Parameter Set Name</label>
+            <input type="text" id="workspaceName" placeholder="e.g. Standard Nut Clearances">
+        </div>
+
+        <div id="selectContainer" class="hidden">
+            <label for="workspaceSelect">Select Parameter Set</label>
+            <select id="workspaceSelect"></select>
+        </div>
+
+        <div class="preview" id="openFilesPreview">
+            <div class="preview-title">Parameters to Save</div>
+            <ul id="openFileList"></ul>
+        </div>
+        
+        <div class="preview hidden" id="existingFilesPreview">
+            <div class="preview-title" style="color: var(--warning);">Parameters to be Replaced</div>
+            <ul id="existingFileList"></ul>
+        </div>
+    </div>
+
+    <script>
+        let paramsData = {};
+
+        function sendState() {
+            if (!window.adsk) return;
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const name = document.getElementById('workspaceName').value;
+            const select = document.getElementById('workspaceSelect').value;
+            const selectedParams = Array.from(document.querySelectorAll('#openFileList input:checked')).map(cb => cb.value);
+            
+            const existList = document.getElementById('existingFileList');
+            existList.innerHTML = '';
+            if (mode === 'Update Existing' && paramsData[select]) {
+                paramsData[select].forEach(f => {
+                    const li = document.createElement('li');
+                    li.textContent = f.name + ' = ' + f.expression;
+                    existList.appendChild(li);
+                });
+            }
+
+            adsk.fusionSendData('update', JSON.stringify({ mode: mode, name: name, select: select, selectedParams: selectedParams }));
+        }
+
+        document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', (e) => {
+            if (e.target.value === 'Create New') {
+                document.getElementById('nameContainer').classList.remove('hidden');
+                document.getElementById('selectContainer').classList.add('hidden');
+                document.getElementById('existingFilesPreview').classList.add('hidden');
+            } else {
+                document.getElementById('nameContainer').classList.add('hidden');
+                document.getElementById('selectContainer').classList.remove('hidden');
+                document.getElementById('existingFilesPreview').classList.remove('hidden');
+            }
+            sendState();
+        }));
+
+        document.getElementById('workspaceName').addEventListener('input', sendState);
+        document.getElementById('workspaceSelect').addEventListener('change', sendState);
+
+        window.fusionJavaScriptHandler = {
+            handle: function(action, data) {
+                if (action === 'init') {
+                    const info = JSON.parse(data);
+                    paramsData = info.paramSets;
+
+                    if (!info.hasDocs) {
+                        document.getElementById('warningMsg').classList.remove('hidden');
+                        document.getElementById('mainForm').classList.add('hidden');
+                    } else {
+                        document.getElementById('mainForm').classList.remove('hidden');
+                        const sel = document.getElementById('workspaceSelect');
+                        const keys = Object.keys(paramsData);
+                        if (keys.length > 0) {
+                            keys.forEach(ws => { sel.add(new Option(ws, ws)); });
+                        } else {
+                            document.getElementById('modeGroup').classList.add('hidden');
+                        }
+
+                        const openList = document.getElementById('openFileList');
+                        openList.innerHTML = '';
+                        if (info.openParams) {
+                            info.openParams.forEach(f => {
+                                const li = document.createElement('li');
+                                li.innerHTML = `<label style="display:flex; align-items:center; font-weight:normal; margin:0; cursor:pointer;"><input type="checkbox" value="${f.name}" checked style="margin-right:8px; cursor:pointer;">${f.name} = ${f.expression}</label>`;
+                                li.querySelector('input').addEventListener('change', sendState);
+                                openList.appendChild(li);
+                            });
+                        }
+                    }
+                    sendState();
+                }
+                return 'OK';
+            }
+        };
+        window.onload = () => {
+            const waitForAdsk = setInterval(() => {
+                if (window.adsk) {
+                    clearInterval(waitForAdsk);
+                    adsk.fusionSendData('ready', '');
+                }
+            }, 50);
+        };
+    </script>
+</body>
+</html>
