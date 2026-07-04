@@ -90,7 +90,7 @@ For the fellow coders and makers out there, here is how Fetch! was built:
 
 ## ❤️ Support the Maker (and Lucy!)
 
-I develop these tools to improve my own workflows and love sharing them with the community. If you find Fetch! useful and want to say thanks, feel free to **buy Lucy a dog treat on Ko-fi**!
+I develop these tools to improve my own workflows and love sharing them with the community. If you find Fetch! useful and want to say thanks, feel free to **[buy Lucy a dog treat on Ko-fi](https://ko-fi.com/makingwithanedj)**!
 
 ***
 
