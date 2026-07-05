@@ -74,4 +74,5 @@ Installers/Output/
 *.msi
 *.pkg
 *.dmg
-*.zipAGENTS.md
+*.zip
+AGENTS.md
